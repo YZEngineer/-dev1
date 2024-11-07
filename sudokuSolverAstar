@@ -1,0 +1,132 @@
+import heapq
+import numpy as np
+import time
+
+# Sudoku probleminin başlangıç durumu (9x9 sudoku matrisi)
+initial_state = [
+    [5, 3, 0, 0, 7, 0, 0, 0, 0],
+    [6, 0, 0, 1, 9, 5, 0, 0, 0],
+    [0, 9, 8, 0, 0, 0, 0, 6, 0],
+    [8, 0, 0, 0, 6, 0, 0, 0, 3],
+    [4, 0, 0, 8, 0, 3, 0, 0, 1],
+    [7, 0, 0, 0, 2, 0, 0, 0, 6],
+    [0, 6, 0, 0, 0, 0, 2, 8, 0],
+    [0, 0, 0, 4, 1, 9, 0, 0, 5],
+    [0, 0, 0, 0, 8, 0, 0, 7, 9]
+]
+
+# Sezgi fonksiyonunun tanımıyla problemin kısıtlarına uygun bir şekilde belirlenecek olan bedelleri düğümlere ekleyiniz.
+class Node:
+    def __init__(self, board, moves=0):
+        # Sudoku tahtası ve hamle sayısını başlatır
+        self.board = board
+        self.moves = moves  # Hareket sayısı (g)
+        # Heuristik fonksiyon hesaplanır (h): Tahtadaki boş hücre sayısı ile orantılıdır
+        self.heuristic = self.calculate_heuristic()
+        
+        # Toplam maliyet (f) hesaplanır: f = g + h
+        self.cost = self.moves + self.heuristic
+
+    # A* algoritması için karşılaştırma fonksiyonu
+    def __lt__(self, other):
+        return self.cost < other.cost
+
+    # Sezgi (heuristic) fonksiyonu: Boş hücre sayısını hesaplar 
+    def calculate_heuristic(self):
+        # Tahtadaki tüm satırlarda boş hücreleri sayarak boşluk sayısını döndürür
+        return sum(row.count(0) for row in self.board)
+
+    # çözüldü mü ? 
+    def is_goal(self):
+        if np.sum(self.board) < 405:
+            return False
+        return self.calculate_heuristic() == 0 and self.is_valid()
+
+    # kurallara uygunluk kontrolu
+    def is_valid(self):
+        for i in range(9):
+            # Satırları kontrol eder
+            if not self.is_valid_line(self.board[i]):
+                return False
+            # Sütunları kontrol eder
+            if not self.is_valid_line([self.board[x][i] for x in range(9)]):
+                return False
+            # kutucukları kontrol eder
+            if not self.is_valid_box(i):
+                return False
+        return True
+
+    # Satır veya sütun kontrol etme
+    def is_valid_line(self, line):
+        line = [num for num in line if num != 0]
+        return len(line) == len(set(line))  # Aynı sayının tekrar edip etmediğini kontrol etme
+
+    # 3x3 kutucukların geçerliliğini kontrol etme
+    def is_valid_box(self, box_idx):
+        row = (box_idx // 3) * 3
+        col = (box_idx % 3) * 3
+        # kutu için x,y bulur
+        box = [self.board[r][c] for r in range(row, row+3) for c in range(col, col+3) if self.board[r][c] != 0]
+        return len(box) == len(set(box))
+
+    # Ardıl fonksiyonu: Bir sonraki hamleleri üretir
+    def get_successors(self):
+        successors = []
+        for i in range(9):
+            for j in range(9):
+                if self.board[i][j] == 0:
+                    # 1-9  olası  çocuk düğümler oluşturur
+                    for value in range(1, 10):
+                        new_board = [row[:] for row in self.board]
+                        new_board[i][j] = value
+                        new_node = Node(new_board, self.moves + 1)
+                        #geçerliyseEklenir
+                        if new_node.is_valid():
+                            successors.append(new_node)
+                    return successors  
+        return successors
+
+#  A* arama 
+def solve_sudoku(initial_state):
+    # Başlangıç düğümü oluşturulur ve açık listeye eklenir
+    start_node = Node(initial_state)
+    open_list = []
+    closed_list = set()  # Ziyaret edilen durumları tutar (closed list)
+
+    # Açık liste (open list) bir öncelik kuyruğu olarak kullanılır
+    heapq.heappush(open_list, (start_node.cost, start_node))
+    steps = 0  # Adım sayısını tutar
+    Zbashlangich = time.time()
+
+    while open_list:
+        # En düşük maliyetli düğümü çıkarır
+        _, current_node = heapq.heappop(open_list)
+        steps += 1#adım sayacı
+
+        # Node içinde tanımlı fonk.
+        if current_node.is_goal():
+            Zbitish = time.time()
+            Zgechen = Zbitish - Zbashlangich
+
+            print(f"Çözüm {steps} adımda {Zgechen} saniyede bulundu.") # Zaman ve uzay karmaşası
+            return current_node.board
+
+        # Mevcut düğüm closed list'e eklenir
+        closed_list.add(str(current_node.board))
+
+        # Ardıl (successor) düğümleri genişletme işlemi
+        for successor in current_node.get_successors():
+            # Eğer ardıl düğüm daha önce ziyaret edilmediyse açık listeye eklenir
+            if str(successor.board) not in closed_list:
+                heapq.heappush(open_list, (successor.cost, successor))
+
+    # Hedefe ulaşılmadıysa çözüm bulunamadı
+    print("Çözüm bulunamadı.")
+    return None
+
+# Sudoku çözümünü başlat
+solution = solve_sudoku(initial_state)
+# çözüm varsa yaz
+if solution:
+    for row in solution:
+        print(row)
